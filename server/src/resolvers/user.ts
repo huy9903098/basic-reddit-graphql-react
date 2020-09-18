@@ -1,26 +1,21 @@
+import { EntityManager } from "@mikro-orm/postgresql";
 import argon2 from "argon2";
-import { MyContext } from "src/types";
 import {
   Arg,
   Ctx,
   Field,
-  InputType,
   Mutation,
   ObjectType,
   Query,
   Resolver,
 } from "type-graphql";
+import { v4 } from "uuid";
 import { User } from "../entities/User";
-import { COOKIE_NAME } from "./../constants";
-
-@InputType()
-class UsernamePasswordInput {
-  @Field()
-  username: string;
-
-  @Field()
-  password: string;
-}
+import { sendEmail } from "../utils/sendEmails";
+import { COOKIE_NAME, FORGET_PASSWORD_PREFIX } from "./../constants";
+import { MyContext } from "./../types";
+import { validateRegister } from "./../utils/validateRegister";
+import { UsernamePasswordInput } from "./UsernamePasswordInput";
 
 @ObjectType()
 class FieldError {
@@ -42,6 +37,33 @@ class UserResponse {
 
 @Resolver()
 export class UserResolver {
+  @Mutation(() => Boolean)
+  async forgotPassword(
+    @Arg("email") email: string,
+    @Ctx() { em, redis }: MyContext
+  ) {
+    const user = await em.findOne(User, { email });
+    if (!user) {
+      // email not in the db
+      return true;
+    }
+
+    const token = v4();
+
+    redis.set(
+      FORGET_PASSWORD_PREFIX + token,
+      user.id,
+      "ex",
+      1000 * 60 * 60 * 24 * 3
+    );
+
+    await sendEmail(
+      email,
+      `<a href="http://localhost:3000/change-password/${token}">Reset password</a>`
+    );
+    return true;
+  }
+
   @Query(() => User, { nullable: true })
   async me(@Ctx() { em, req }: MyContext) {
     if (!req.session.userId) {
@@ -57,59 +79,77 @@ export class UserResolver {
     @Arg("options") options: UsernamePasswordInput,
     @Ctx() { em, req }: MyContext
   ): Promise<UserResponse> {
-    if (options.username.length <= 2) {
-      return {
-        errors: [
-          {
-            field: "username",
-            message: "Length must be greater than 2",
-          },
-        ],
-      };
+    const errors = validateRegister(options);
+    if (errors) {
+      return { errors };
     }
-    const findUser = await em.findOne(User, {
-      username: options.username.toLowerCase(),
-    });
+    // const findEmail = await em.findOne(User, {
+    //   email: options.email.toLowerCase(),
+    // });
 
-    if (findUser) {
-      return {
-        errors: [
-          {
-            field: "username",
-            message: "that username already exist",
-          },
-        ],
-      };
-    }
-
-    if (options.password.length <= 2) {
-      return {
-        errors: [
-          {
-            field: "password",
-            message: "Length must be greater than 3",
-          },
-        ],
-      };
-    }
+    // if (findUser) {
+    //   return {
+    //     errors: [
+    //       {
+    //         field: "username",
+    //         message: "that username already exist",
+    //       },
+    //     ],
+    //   };
+    // } else if (findEmail) {
+    //   return {
+    //     errors: [
+    //       {
+    //         field: "email",
+    //         message: "that email already register",
+    //       },
+    //     ],
+    //   };
+    // }
 
     const hashPassword = await argon2.hash(options.password);
-    const user = em.create(User, {
-      username: options.username,
-      password: hashPassword,
-    });
+    // const user = em.create(User, {
+    //   username: options.username,
+    //   password: hashPassword,
+    // });
 
+    // try {
+    //   await em.persistAndFlush(user);
+    // } catch (e) {
+    //   return {
+    //     errors: [
+    //       {
+    //         field: "username",
+    //         message: e,
+    //       },
+    //     ],
+    //   };
+    // }
+    let user;
     try {
-      await em.persistAndFlush(user);
-    } catch (e) {
-      return {
-        errors: [
-          {
-            field: "username",
-            message: e,
-          },
-        ],
-      };
+      const result = await (em as EntityManager)
+        .createQueryBuilder(User)
+        .getKnexQuery()
+        .insert({
+          username: options.username,
+          password: hashPassword,
+          created_at: new Date(),
+          updated_at: new Date(),
+          email: options.email,
+        })
+        .returning("*");
+      user = result[0];
+    } catch (err) {
+      if (err.code === "23505") {
+        return {
+          errors: [
+            {
+              field: "username",
+              message: "username already taken",
+            },
+          ],
+        };
+      }
     }
 
     req.session.userId = user.id;
@@ -119,23 +159,31 @@ export class UserResolver {
 
   @Mutation(() => UserResponse)
   async login(
-    @Arg("options") options: UsernamePasswordInput,
+    @Arg("usernameOrEmail") usernameOrEmail: string,
+    @Arg("password") password: string,
     @Ctx() { em, req }: MyContext
   ): Promise<UserResponse> {
-    const user = await em.findOne(User, {
-      username: options.username.toLowerCase(),
-    });
+    const user = await em.findOne(
+      User,
+      usernameOrEmail.includes("@")
+        ? {
+            email: usernameOrEmail.toLowerCase(),
+          }
+        : {
+            username: usernameOrEmail.toLowerCase(),
+          }
+    );
     if (!user) {
       return {
         errors: [
           {
-            field: "username",
+            field: "usernameOrEmail",
             message: "that username doesn't exist",
           },
         ],
       };
     }
-    const valid = await argon2.verify(user.password, options.password);
+    const valid = await argon2.verify(user.password, password);
 
     if (!valid) {
       return {
