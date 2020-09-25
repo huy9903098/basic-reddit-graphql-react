@@ -1,6 +1,7 @@
-import { Box, Button } from "@chakra-ui/core";
+import { Box, Button, Flex, Link } from "@chakra-ui/core";
 import { Form, Formik } from "formik";
 import { withUrqlClient } from "next-urql";
+import NextLink from "next/link";
 import { useRouter } from "next/router";
 import React from "react";
 import { InputField } from "../components/InputField";
@@ -21,7 +22,9 @@ export const Login: React.FC<{}> = ({}) => {
           if (response.data?.login.errors) {
             setErrors(toErrorMap(response.data?.login.errors));
           } else if (response.data?.login.user) {
-            router.push("/");
+            router.push(
+              typeof router.query.next === "string" ? router.query.next : "/"
+            );
           }
         }}
       >
@@ -40,6 +43,12 @@ export const Login: React.FC<{}> = ({}) => {
                 type="password"
               />
             </Box>
+            <Flex mt={2}>
+              <NextLink href="/forgot-password">
+                <Link ml="auto">forgot password?</Link>
+              </NextLink>
+            </Flex>
+
             <Button
               type="submit"
               variantColor="teal"
