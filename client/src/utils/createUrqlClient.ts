@@ -5,15 +5,16 @@ import {
   dedupExchange,
   Exchange,
   fetchExchange,
-  stringifyVariables,
+  stringifyVariables
 } from "urql";
 import { pipe, tap } from "wonka";
 import {
+  DeletePostMutationVariables,
   LoginMutation,
   LogoutMutation,
   MeDocument,
   MeQuery,
-  RegisterMutation,
+  RegisterMutation
 } from "../generated/graphql";
 import { VoteMutationVariables } from "./../generated/graphql";
 import { betterUpdateQuery } from "./betterUpdateQuery";
@@ -78,7 +79,7 @@ function invalidateAllPosts(cache: Cache) {
 export const createUrqlClient = (ssrExchange: any, ctx: any) => {
   let cookie = "";
   if (isServer()) {
-    cookie = ctx.req.headers.cookie;
+    cookie = ctx?.req?.headers?.cookie;
   }
   return {
     url: "http://localhost:4000/graphql",
@@ -101,8 +102,11 @@ export const createUrqlClient = (ssrExchange: any, ctx: any) => {
             posts: cursorPagination(),
           },
         },
-        updates: {
+        updates: { 
           Mutation: {
+            deletePost:(_result, args, cache, info)=>{
+              cache.invalidate({__typename:"Post",id:(args as DeletePostMutationVariables).id})
+            },
             vote: (_result, args, cache, info) => {
               const { postId, value } = args as VoteMutationVariables;
               const data = cache.readFragment(
