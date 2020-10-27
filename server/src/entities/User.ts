@@ -6,8 +6,9 @@ import {
   Entity,
   OneToMany,
   PrimaryGeneratedColumn,
-  UpdateDateColumn,
+  UpdateDateColumn
 } from "typeorm";
+import { Comment } from "./Comment";
 import { Post } from "./Post";
 import { Updoot } from "./Updoot";
 
@@ -23,6 +24,9 @@ export class User extends BaseEntity {
 
   @OneToMany(() => Updoot, (updoot) => updoot.post)
   updoots: Updoot[];
+
+  @OneToMany(() => Comment, (comment) => comment.user)
+  comments: Comment[];
 
   @Field()
   @Column({ unique: true })

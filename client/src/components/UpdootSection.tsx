@@ -1,9 +1,15 @@
 import { Flex, IconButton } from "@chakra-ui/core";
 import React, { useState } from "react";
-import { PostSnippetFragment, useVoteMutation } from "../generated/graphql";
+import { useVoteMutation } from "../generated/graphql";
+
+interface PostUpdoot{
+  id: number;
+  voteStatus: number | null | undefined;
+  points: number | null | undefined;
+}
 
 interface UpdootSectionProps {
-  post: PostSnippetFragment;
+  post: PostUpdoot;
 }
 
 export const UpdootSection: React.FC<UpdootSectionProps> = ({ post }) => {

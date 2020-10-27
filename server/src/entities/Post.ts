@@ -7,8 +7,9 @@ import {
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
-  UpdateDateColumn,
+  UpdateDateColumn
 } from "typeorm";
+import { Comment } from "./Comment";
 import { Updoot } from "./Updoot";
 import { User } from "./User";
 
@@ -29,6 +30,9 @@ export class Post extends BaseEntity {
 
   @OneToMany(() => Updoot, (updoot) => updoot.user)
   updoots: Updoot[];
+
+  @OneToMany(() => Comment, (comment) => comment.post)
+  comments: Comment[];
 
   @Field(() => Int, { nullable: true })
   voteStatus: number | null; //1 or -1 or null
