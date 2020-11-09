@@ -131,9 +131,14 @@ const Post = ({}) => {
                   //   Check data
                   // </Button>
                   <>
-                    {commentsData!.getCommentByPostId.comments.map((c) => {
-                      console.log('comment c',c)
-                    })}
+                    {commentsData!.getCommentByPostId.comments.map((c) => (
+                      <>
+                        <Box key={c.id} mt={4}>
+                          <Heading fontSize="xl">{c.user.username}</Heading>
+                          <Box key={c.id}>{c.text}</Box>
+                        </Box>
+                      </>
+                    ))}
                   </>
                 )}
               </Box>

@@ -14,7 +14,7 @@ import { Comment } from "./entities/Comment";
 import { Post } from "./entities/Post";
 import { Updoot } from "./entities/Updoot";
 import { User } from "./entities/User";
-import { HelloResolver } from "./resolvers/comment";
+import { CommentResolver } from "./resolvers/comment";
 import { PostResolver } from "./resolvers/post";
 import { UserResolver } from "./resolvers/user";
 import { createUpdootLoader } from "./utils/createUpdootLoader";
@@ -68,7 +68,7 @@ const main = async () => {
 
   const apolloServer = new ApolloServer({
     schema: await buildSchema({
-      resolvers: [HelloResolver, UserResolver, PostResolver],
+      resolvers: [CommentResolver, UserResolver, PostResolver],
       validate: false,
     }),
     context: ({ req, res }) => ({

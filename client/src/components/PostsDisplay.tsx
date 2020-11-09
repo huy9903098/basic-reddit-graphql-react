@@ -1,18 +1,23 @@
 import { Box, Button, Flex, Heading, Link, Stack, Text } from "@chakra-ui/core";
 import NextLink from "next/link";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { usePostsQuery } from "../generated/graphql";
 import { EditDeletePostButton } from "./EditDeletePostButton";
 import { UpdootSection } from "./UpdootSection";
 
 interface PostsDisplayProps {
   exceptionId?: number;
+  keyword?: string | null;
 }
 
-export const PostsDisplay: React.FC<PostsDisplayProps> = ({ exceptionId }) => {
+export const PostsDisplay: React.FC<PostsDisplayProps> = ({
+  exceptionId,
+  keyword,
+}) => {
   const [variables, setVariables] = useState({
     limit: 15,
     cursor: null as null | string,
+    keyword,
   });
 
   const [{ data, fetching }] = usePostsQuery({
@@ -22,6 +27,17 @@ export const PostsDisplay: React.FC<PostsDisplayProps> = ({ exceptionId }) => {
   if (fetching && !data) {
     return <div>You got no post for some reason</div>;
   }
+
+  if (keyword) {
+    useEffect(() => {
+      setVariables({
+        limit: variables.limit,
+        cursor: null,
+        keyword: keyword,
+      });
+    }, [keyword]);
+  }
+
   return (
     <>
       {!data && fetching ? (
@@ -70,6 +86,7 @@ export const PostsDisplay: React.FC<PostsDisplayProps> = ({ exceptionId }) => {
               setVariables({
                 limit: variables.limit,
                 cursor: data.posts.posts[data.posts.posts.length - 1].createdAt,
+                keyword,
               });
             }}
             isLoading={fetching}

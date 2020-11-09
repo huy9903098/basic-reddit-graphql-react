@@ -36,7 +36,9 @@ export const cursorPagination = (): Resolver => {
   return (_parent, fieldArgs, cache, info) => {
     const { parentKey: entityKey, fieldName } = info;
     const allFields = cache.inspectFields(entityKey);
+
     const fieldInfos = allFields.filter((info) => info.fieldName === fieldName);
+
     const size = fieldInfos.length;
     if (size === 0) {
       return undefined;
@@ -49,17 +51,32 @@ export const cursorPagination = (): Resolver => {
     );
     info.partial = !isItInTheCache;
     let hasMore = true;
+
     const results: string[] = [];
     fieldInfos.forEach((fi) => {
-      const key = cache.resolveFieldByKey(entityKey, fi.fieldKey) as string;
-      const data = cache.resolve(key, "posts") as string[];
-      const _hasMore = cache.resolve(key, "hasMore");
-      if (!_hasMore) {
-        hasMore = _hasMore as boolean;
-      }
-      results.push(...data);
-    });
+      if (fieldArgs.keyword && fi.arguments?.keyword === fieldArgs.keyword) {
+        //cache for different keyword search queery
+        const key = cache.resolveFieldByKey(entityKey, fi.fieldKey) as string;
+        const data = cache.resolve(key, "posts") as string[];
+        const _hasMore = cache.resolve(key, "hasMore");
 
+        if (!_hasMore) {
+          hasMore = _hasMore as boolean;
+        }
+        results.push(...data);
+      } else {
+        if (!fieldArgs.keyword && !fi.arguments?.keyword) {
+          const key = cache.resolveFieldByKey(entityKey, fi.fieldKey) as string;
+          const data = cache.resolve(key, "posts") as string[];
+          const _hasMore = cache.resolve(key, "hasMore");
+
+          if (!_hasMore) {
+            hasMore = _hasMore as boolean;
+          }
+          results.push(...data);
+        }
+      }
+    });
     return {
       __typename: "PaginatedPosts",
       hasMore,
@@ -102,10 +119,13 @@ export const createUrqlClient = (ssrExchange: any, ctx: any) => {
             posts: cursorPagination(),
           },
         },
-        updates: { 
+        updates: {
           Mutation: {
-            deletePost:(_result, args, cache, info)=>{
-              cache.invalidate({__typename:"Post",id:(args as DeletePostMutationVariables).id})
+            deletePost: (_result, args, cache, info) => {
+              cache.invalidate({
+                __typename: "Post",
+                id: (args as DeletePostMutationVariables).id,
+              });
             },
             vote: (_result, args, cache, info) => {
               const { postId, value } = args as VoteMutationVariables;

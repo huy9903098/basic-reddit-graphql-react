@@ -4,6 +4,7 @@ import { useRouter } from "next/router";
 import React from "react";
 import { useLogoutMutation, useMeQuery } from "../generated/graphql";
 import { isServer } from "../utils/isServer";
+import { SearchBar } from "./SearchBar";
 
 interface NavBarProps {}
 
@@ -59,6 +60,9 @@ export const NavBar: React.FC<NavBarProps> = ({}) => {
             <Heading>NotReddit</Heading>
           </Link>
         </NextLink>
+        <Box ml="auto">
+          <SearchBar/>
+        </Box>
         <Box ml={"auto"}>{body}</Box>
       </Flex>
     </Flex>

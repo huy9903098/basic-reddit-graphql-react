@@ -29,27 +29,10 @@ class PostInput {
   text: string;
 }
 
-@InputType()
-class CommentInput {
-  @Field()
-  postId: string;
-
-  @Field()
-  text: string;
-}
-
 @ObjectType()
 class PaginatedPosts {
   @Field(() => [Post])
   posts: Post[];
-  @Field()
-  hasMore: Boolean;
-}
-
-@ObjectType()
-class PaginatedComments {
-  @Field(() => [Comment])
-  comments: Comment[];
   @Field()
   hasMore: Boolean;
 }
@@ -65,12 +48,6 @@ export class PostResolver {
   @FieldResolver(() => User)
   creator(@Root() post: Post, @Ctx() { userLoader }: MyContext) {
     return userLoader.load(post.creatorId);
-  }
-
-  @FieldResolver(() => User)
-  user(@Root() comment: Comment, @Ctx() { userLoader }: MyContext) {
-    console.log('FieldResolver for comment')
-    return userLoader.load(comment.userId);
   }
 
   @FieldResolver(() => Int, { nullable: true })
@@ -150,25 +127,97 @@ export class PostResolver {
   }
 
   @Query(() => PaginatedPosts)
+  async postsByUserId(
+    @Arg("limit", () => Int) limit: number,
+    @Arg("cursor", () => String, { nullable: true }) cursor: string | null,
+    @Arg("creatorId", () => Int, { nullable: true }) creatorId: number | null
+  ): Promise<PaginatedPosts> {
+    const realLimit = Math.min(50, limit);
+    const realLimitPlusOne = realLimit + 1;
+    const replacements: any[] = [realLimitPlusOne];
+    if (creatorId) {
+      replacements.push(creatorId);
+    }
+    if (cursor) {
+      replacements.push(new Date(parseInt(cursor)));
+    }
+    const posts = await getConnection().query(
+      `
+    select p.*
+    from post p
+    ${
+      creatorId
+        ? `where p."creatorId"=$2`
+        : ""
+    }${
+      cursor
+        ? creatorId
+          ? ` and p."createdAt" < $3`
+          : `where p."createdAt" < $2`
+        : ""
+    }
+    order by p."createdAt" DESC
+    limit $1
+    `,
+      replacements
+    );
+
+    return {
+      posts: posts.slice(0, realLimit),
+      hasMore: posts.length === realLimitPlusOne,
+    };
+  }
+
+  @Query(() => PaginatedPosts)
   async posts(
     @Arg("limit", () => Int) limit: number,
     @Arg("cursor", () => String, { nullable: true }) cursor: string | null,
+    @Arg("keyword", () => String, { nullable: true }) keyword: string | null,
+    @Arg("orderBy", () => String, { nullable: true }) orderBy: string | null,
+    @Arg("creatorId", () => Int, { nullable: true }) creatorId: number | null,
     @Ctx() { req }: MyContext
   ): Promise<PaginatedPosts> {
     const realLimit = Math.min(50, limit);
     const realLimitPlusOne = realLimit + 1;
     const replacements: any[] = [realLimitPlusOne];
-
+    let postOrder = `p."createdAt" DESC`;
+    if (keyword) {
+      replacements.push(keyword);
+    }
     if (cursor) {
       replacements.push(new Date(parseInt(cursor)));
     }
 
+    const byUserId = replacements.length > 1 ? ` and p."creatorId"=${creatorId}` : `where p."creatorId"=${creatorId}`;
+
+    switch(orderBy) {
+      case 'upvote':
+        // code block
+        postOrder = `p.points DESC`;
+        break;
+      case 'name':
+        // code block
+        postOrder = `p.title ASC`;
+        break;
+      default:
+        // code block
+    }
     const posts = await getConnection().query(
       `
     select p.*
     from post p
-    ${cursor ? `where p."createdAt" < $2` : ""}
-    order by p."createdAt" DESC
+    ${
+      keyword
+        ? `where to_tsvector(p.title || ' ' || p.text) @@ to_tsquery($2)`
+        : ""
+    }${
+      cursor
+        ? keyword
+          ? ` and p."createdAt" < $3`
+          : `where p."createdAt" < $2`
+        : ""
+    }${creatorId ? byUserId : ""}
+    order by ${postOrder}
     limit $1
     `,
       replacements
@@ -217,7 +266,7 @@ export class PostResolver {
     @Arg("id", () => Int) id: number,
     @Ctx() { req }: MyContext
   ): Promise<boolean> {
-    await Comment.delete({ postId:id });
+    await Comment.delete({ postId: id });
     await Post.delete({ id, creatorId: req.session.userId });
     return true;
   }
@@ -242,82 +291,4 @@ export class PostResolver {
       .execute();
     return result.raw[0];
   }
-
-  @Mutation(() => Comment)
-  @UseMiddleware(isAuth)
-  async createComment(
-    @Arg("postId", () => Int) postId: number,
-    @Arg("text") text: string,
-    @Ctx() { req }: MyContext
-  ):Promise<Comment> {
-    return Comment.create({
-      postId,
-      text,
-      userId: req.session.userId,
-    }).save();
-  }
-
-  @Mutation(() => Comment, { nullable: true })
-  @UseMiddleware(isAuth)
-  async updateComment(
-    @Arg("id", () => Int) id: number,
-    @Arg("text") text: string,
-    @Ctx() { req }: MyContext
-  ): Promise<Comment | null> {
-    const result = await getConnection()
-      .createQueryBuilder()
-      .update(Comment)
-      .set({ text })
-      .where('id = :id and "userId" = :userId', {
-        id,
-        userId: req.session.userId,
-      })
-      .returning("*")
-      .execute();
-    return result.raw[0];
-  }
-
-  @Mutation(() => Boolean)
-  @UseMiddleware(isAuth)
-  async deleteComment(
-    @Arg("id", () => Int) id: number,
-    @Ctx() { req }: MyContext
-  ): Promise<boolean> {
-    await Comment.delete({ id, userId: req.session.userId });
-    return true;
-  }
-
-  @Query(() => PaginatedComments)
-  async getCommentByPostId(
-    @Arg("postId", () => Int) postId: number,
-    @Arg("limit", () => Int) limit: number,
-    @Arg("cursor", () => String, { nullable: true }) cursor: string | null,
-    @Ctx() { req }: MyContext
-  ): Promise<PaginatedComments> {
-    const realLimit = Math.min(20, limit);
-    const realLimitPlusOne = realLimit + 1;
-    const replacements: any[] = [realLimitPlusOne];
-
-    if (cursor) {
-      replacements.push(new Date(parseInt(cursor)));
-    }
-
-    const comments = await getConnection().query(
-      `
-    select c.*
-    from comment c
-    ${cursor ? `where c."createdAt" < $2 ` : ""}
-    where c."postId" = ${postId}
-    order by c."createdAt" DESC
-    limit $1
-    `,
-      replacements
-    );
-    return {
-      comments: comments,
-      hasMore: comments.length === realLimitPlusOne,
-    };
-  }
-
-
 }

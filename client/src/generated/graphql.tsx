@@ -14,21 +14,11 @@ export type Scalars = {
 
 export type Query = {
   __typename?: 'Query';
+  getCommentByPostId: PaginatedComments;
+  postsByUserId: PaginatedPosts;
   posts: PaginatedPosts;
   post?: Maybe<Post>;
-  getCommentByPostId: PaginatedComments;
   me?: Maybe<User>;
-};
-
-
-export type QueryPostsArgs = {
-  cursor?: Maybe<Scalars['String']>;
-  limit: Scalars['Int'];
-};
-
-
-export type QueryPostArgs = {
-  id: Scalars['Int'];
 };
 
 
@@ -38,34 +28,23 @@ export type QueryGetCommentByPostIdArgs = {
   postId: Scalars['Int'];
 };
 
-export type PaginatedPosts = {
-  __typename?: 'PaginatedPosts';
-  posts: Array<Post>;
-  hasMore: Scalars['Boolean'];
+
+export type QueryPostsByUserIdArgs = {
+  creatorId?: Maybe<Scalars['Int']>;
+  cursor?: Maybe<Scalars['String']>;
+  limit: Scalars['Int'];
 };
 
-export type Post = {
-  __typename?: 'Post';
-  id: Scalars['Float'];
-  creatorId: Scalars['Float'];
-  creator: User;
-  voteStatus?: Maybe<Scalars['Int']>;
-  title: Scalars['String'];
-  text: Scalars['String'];
-  points: Scalars['Float'];
-  createdAt: Scalars['String'];
-  updatedAt: Scalars['String'];
-  textSnippet: Scalars['String'];
-  user: User;
+
+export type QueryPostsArgs = {
+  keyword?: Maybe<Scalars['String']>;
+  cursor?: Maybe<Scalars['String']>;
+  limit: Scalars['Int'];
 };
 
-export type User = {
-  __typename?: 'User';
-  id: Scalars['Float'];
-  username: Scalars['String'];
-  email: Scalars['String'];
-  createdAt: Scalars['String'];
-  updatedAt: Scalars['String'];
+
+export type QueryPostArgs = {
+  id: Scalars['Int'];
 };
 
 export type PaginatedComments = {
@@ -86,20 +65,66 @@ export type Comment = {
   updatedAt: Scalars['String'];
 };
 
+export type User = {
+  __typename?: 'User';
+  id: Scalars['Float'];
+  username: Scalars['String'];
+  email: Scalars['String'];
+  createdAt: Scalars['String'];
+  updatedAt: Scalars['String'];
+};
+
+export type Post = {
+  __typename?: 'Post';
+  id: Scalars['Float'];
+  creatorId: Scalars['Float'];
+  creator: User;
+  voteStatus?: Maybe<Scalars['Int']>;
+  title: Scalars['String'];
+  text: Scalars['String'];
+  points: Scalars['Float'];
+  createdAt: Scalars['String'];
+  updatedAt: Scalars['String'];
+  textSnippet: Scalars['String'];
+};
+
+export type PaginatedPosts = {
+  __typename?: 'PaginatedPosts';
+  posts: Array<Post>;
+  hasMore: Scalars['Boolean'];
+};
+
 export type Mutation = {
   __typename?: 'Mutation';
+  createComment: Comment;
+  updateComment?: Maybe<Comment>;
+  deleteComment: Scalars['Boolean'];
   vote: Scalars['Boolean'];
   createPost: Post;
   deletePost: Scalars['Boolean'];
   updatePost?: Maybe<Post>;
-  createComment: Comment;
-  updateComment?: Maybe<Comment>;
-  deleteComment: Scalars['Boolean'];
   changePassword: UserResponse;
   forgotPassword: Scalars['Boolean'];
   register: UserResponse;
   login: UserResponse;
   logout: Scalars['Boolean'];
+};
+
+
+export type MutationCreateCommentArgs = {
+  text: Scalars['String'];
+  postId: Scalars['Int'];
+};
+
+
+export type MutationUpdateCommentArgs = {
+  text: Scalars['String'];
+  id: Scalars['Int'];
+};
+
+
+export type MutationDeleteCommentArgs = {
+  id: Scalars['Int'];
 };
 
 
@@ -122,23 +147,6 @@ export type MutationDeletePostArgs = {
 export type MutationUpdatePostArgs = {
   text: Scalars['String'];
   title: Scalars['String'];
-  id: Scalars['Int'];
-};
-
-
-export type MutationCreateCommentArgs = {
-  text: Scalars['String'];
-  postId: Scalars['Int'];
-};
-
-
-export type MutationUpdateCommentArgs = {
-  text: Scalars['String'];
-  id: Scalars['Int'];
-};
-
-
-export type MutationDeleteCommentArgs = {
   id: Scalars['Int'];
 };
 
@@ -340,6 +348,10 @@ export type GetCommentsByPostIdQuery = (
     & { comments: Array<(
       { __typename?: 'Comment' }
       & Pick<Comment, 'id' | 'userId' | 'text'>
+      & { user: (
+        { __typename?: 'User' }
+        & Pick<User, 'username'>
+      ) }
     )> }
   ) }
 );
@@ -375,12 +387,32 @@ export type PostQuery = (
 export type PostsQueryVariables = Exact<{
   limit: Scalars['Int'];
   cursor?: Maybe<Scalars['String']>;
+  keyword?: Maybe<Scalars['String']>;
 }>;
 
 
 export type PostsQuery = (
   { __typename?: 'Query' }
   & { posts: (
+    { __typename?: 'PaginatedPosts' }
+    & Pick<PaginatedPosts, 'hasMore'>
+    & { posts: Array<(
+      { __typename?: 'Post' }
+      & PostSnippetFragment
+    )> }
+  ) }
+);
+
+export type PostsByUserIdQueryVariables = Exact<{
+  limit: Scalars['Int'];
+  cursor?: Maybe<Scalars['String']>;
+  creatorId: Scalars['Int'];
+}>;
+
+
+export type PostsByUserIdQuery = (
+  { __typename?: 'Query' }
+  & { postsByUserId: (
     { __typename?: 'PaginatedPosts' }
     & Pick<PaginatedPosts, 'hasMore'>
     & { posts: Array<(
@@ -536,6 +568,9 @@ export const GetCommentsByPostIdDocument = gql`
       id
       userId
       text
+      user {
+        username
+      }
     }
     hasMore
   }
@@ -579,8 +614,8 @@ export function usePostQuery(options: Omit<Urql.UseQueryArgs<PostQueryVariables>
   return Urql.useQuery<PostQuery>({ query: PostDocument, ...options });
 };
 export const PostsDocument = gql`
-    query Posts($limit: Int!, $cursor: String) {
-  posts(cursor: $cursor, limit: $limit) {
+    query Posts($limit: Int!, $cursor: String, $keyword: String) {
+  posts(cursor: $cursor, limit: $limit, keyword: $keyword) {
     hasMore
     posts {
       ...PostSnippet
@@ -591,4 +626,18 @@ export const PostsDocument = gql`
 
 export function usePostsQuery(options: Omit<Urql.UseQueryArgs<PostsQueryVariables>, 'query'> = {}) {
   return Urql.useQuery<PostsQuery>({ query: PostsDocument, ...options });
+};
+export const PostsByUserIdDocument = gql`
+    query postsByUserId($limit: Int!, $cursor: String, $creatorId: Int!) {
+  postsByUserId(cursor: $cursor, limit: $limit, creatorId: $creatorId) {
+    hasMore
+    posts {
+      ...PostSnippet
+    }
+  }
+}
+    ${PostSnippetFragmentDoc}`;
+
+export function usePostsByUserIdQuery(options: Omit<Urql.UseQueryArgs<PostsByUserIdQueryVariables>, 'query'> = {}) {
+  return Urql.useQuery<PostsByUserIdQuery>({ query: PostsByUserIdDocument, ...options });
 };

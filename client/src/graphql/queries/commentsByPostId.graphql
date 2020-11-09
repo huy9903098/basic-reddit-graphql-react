@@ -4,6 +4,9 @@ query getCommentsByPostId($postId: Int!, $limit: Int!, $cursor: String) {
       id
       userId
       text
+      user{
+        username
+      }
     }
     hasMore
   }
