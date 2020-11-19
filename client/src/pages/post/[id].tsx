@@ -4,19 +4,23 @@ import {
   Divider,
   Flex,
   Heading,
-  Stack,
-  Textarea
+  Link,
+  Stack
 } from "@chakra-ui/core";
 import { Form, Formik } from "formik";
 import { withUrqlClient } from "next-urql";
+import NextLink from "next/link";
 import { useRouter } from "next/router";
 import React from "react";
+import { CommentDisplay } from "../../components/CommentDisplay";
 import { EditDeletePostButton } from "../../components/EditDeletePostButton";
+import { InputField } from "../../components/InputField";
 import { Layout } from "../../components/Layout";
 import { PostsDisplay } from "../../components/PostsDisplay";
 import { UpdootSection } from "../../components/UpdootSection";
 import {
-  useGetCommentsByPostIdQuery,
+  useCreateCommentMutation,
+  useGetCommentByPostIdQuery,
   usePostQuery
 } from "../../generated/graphql";
 import { createUrqlClient } from "../../utils/createUrqlClient";
@@ -31,10 +35,11 @@ const Post = ({}) => {
       id: intId,
     },
   });
+  const [, createComment] = useCreateCommentMutation();
 
   const [
     { data: commentsData, error: commentError, fetching: commentFetching },
-  ] = useGetCommentsByPostIdQuery({
+  ] = useGetCommentByPostIdQuery({
     variables: {
       postId: intId,
       limit: 15,
@@ -90,7 +95,15 @@ const Post = ({}) => {
               </Flex>
 
               <Box mt={4} mb={4}>
-                Posted by {data.post.creator.username}
+                Posted by{" "}
+                <NextLink
+                  href="/user/[id]"
+                  as={`/user/${data.post.creator.id}`}
+                >
+                  <Link>
+                    <b>{data.post.creator.username}</b>
+                  </Link>
+                </NextLink>
               </Box>
 
               <Box>{data.post.text}</Box>
@@ -98,30 +111,41 @@ const Post = ({}) => {
                 <Button>Comments</Button>
                 <Divider />
                 <Formik
-                  initialValues={{ title: "", text: "" }}
-                  onSubmit={async () => {
-                    console.log("create comment");
+                  initialValues={{ text: "", postId: intId }}
+                  onSubmit={async (values, { resetForm }) => {
+                    const { error } = await createComment({ input: values });
+                    if (!error) {
+                      router.push(`/post/${intId}`);
+                      resetForm();
+                    }
                   }}
                 >
-                  {({ isSubmitting }) => (
-                    <Form>
-                      <Box mt={4}>
-                        <Textarea name="text" placeholder="text..." />
-                      </Box>
+                  {({ isSubmitting }) => {
+                    return (
+                      <Form>
+                        <Box mt={4}>
+                          <InputField
+                            textarea
+                            name="text"
+                            size={100}
+                            placeholder="text..."
+                          />
+                        </Box>
 
-                      <Button
-                        type="submit"
-                        variantColor="teal"
-                        mt={4}
-                        isLoading={isSubmitting}
-                      >
-                        Add Comment
-                      </Button>
-                    </Form>
-                  )}
+                        <Button
+                          type="submit"
+                          variantColor="teal"
+                          mt={4}
+                          isLoading={isSubmitting}
+                        >
+                          Add Comment
+                        </Button>
+                      </Form>
+                    );
+                  }}
                 </Formik>
               </Box>
-              <Box mt={5}>
+              <Box mt={5} backgroundColor="gray">
                 {!commentsData && commentFetching ? (
                   <div>Loading ...</div>
                 ) : (
@@ -131,14 +155,23 @@ const Post = ({}) => {
                   //   Check data
                   // </Button>
                   <>
-                    {commentsData!.getCommentByPostId.comments.map((c) => (
-                      <>
-                        <Box key={c.id} mt={4}>
-                          <Heading fontSize="xl">{c.user.username}</Heading>
-                          <Box key={c.id}>{c.text}</Box>
-                        </Box>
-                      </>
-                    ))}
+                    {commentsData!.getCommentByPostId.comments
+                      ? commentsData!.getCommentByPostId.comments.map(
+                          (comment) => (
+                            <Stack
+                              key={comment.id}
+                              pb={5}
+                              mb={5}
+                              mt={5}
+                              style={{
+                                borderBottom: "1px solid rgb(230, 230, 230)",
+                              }}
+                            >
+                              <CommentDisplay comment={comment} />
+                            </Stack>
+                          )
+                        )
+                      : null}
                   </>
                 )}
               </Box>

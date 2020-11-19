@@ -126,61 +126,18 @@ export class PostResolver {
     return true;
   }
 
-  @Query(() => PaginatedPosts)
-  async postsByUserId(
-    @Arg("limit", () => Int) limit: number,
-    @Arg("cursor", () => String, { nullable: true }) cursor: string | null,
-    @Arg("creatorId", () => Int, { nullable: true }) creatorId: number | null
-  ): Promise<PaginatedPosts> {
-    const realLimit = Math.min(50, limit);
-    const realLimitPlusOne = realLimit + 1;
-    const replacements: any[] = [realLimitPlusOne];
-    if (creatorId) {
-      replacements.push(creatorId);
-    }
-    if (cursor) {
-      replacements.push(new Date(parseInt(cursor)));
-    }
-    const posts = await getConnection().query(
-      `
-    select p.*
-    from post p
-    ${
-      creatorId
-        ? `where p."creatorId"=$2`
-        : ""
-    }${
-      cursor
-        ? creatorId
-          ? ` and p."createdAt" < $3`
-          : `where p."createdAt" < $2`
-        : ""
-    }
-    order by p."createdAt" DESC
-    limit $1
-    `,
-      replacements
-    );
-
-    return {
-      posts: posts.slice(0, realLimit),
-      hasMore: posts.length === realLimitPlusOne,
-    };
-  }
 
   @Query(() => PaginatedPosts)
   async posts(
     @Arg("limit", () => Int) limit: number,
     @Arg("cursor", () => String, { nullable: true }) cursor: string | null,
     @Arg("keyword", () => String, { nullable: true }) keyword: string | null,
-    @Arg("orderBy", () => String, { nullable: true }) orderBy: string | null,
     @Arg("creatorId", () => Int, { nullable: true }) creatorId: number | null,
     @Ctx() { req }: MyContext
   ): Promise<PaginatedPosts> {
     const realLimit = Math.min(50, limit);
     const realLimitPlusOne = realLimit + 1;
     const replacements: any[] = [realLimitPlusOne];
-    let postOrder = `p."createdAt" DESC`;
     if (keyword) {
       replacements.push(keyword);
     }
@@ -188,20 +145,11 @@ export class PostResolver {
       replacements.push(new Date(parseInt(cursor)));
     }
 
-    const byUserId = replacements.length > 1 ? ` and p."creatorId"=${creatorId}` : `where p."creatorId"=${creatorId}`;
+    const byUserId =
+      replacements.length > 1
+        ? ` and p."creatorId"=${creatorId}`
+        : `where p."creatorId"=${creatorId}`;
 
-    switch(orderBy) {
-      case 'upvote':
-        // code block
-        postOrder = `p.points DESC`;
-        break;
-      case 'name':
-        // code block
-        postOrder = `p.title ASC`;
-        break;
-      default:
-        // code block
-    }
     const posts = await getConnection().query(
       `
     select p.*
@@ -211,32 +159,18 @@ export class PostResolver {
         ? `where to_tsvector(p.title || ' ' || p.text) @@ to_tsquery($2)`
         : ""
     }${
-      cursor
-        ? keyword
-          ? ` and p."createdAt" < $3`
-          : `where p."createdAt" < $2`
-        : ""
-    }${creatorId ? byUserId : ""}
-    order by ${postOrder}
+        cursor
+          ? keyword
+            ? ` and p."createdAt" < $3`
+            : `where p."createdAt" < $2`
+          : ""
+      }${creatorId ? byUserId : ""}
+    order by p."createdAt" DESC
     limit $1
     `,
       replacements
     );
-    // const qb = getConnection()
-    //   .getRepository(Post)
-    //   .createQueryBuilder("p")
-    //   .innerJoinAndSelect("p.creator", "u", 'u.id = p."creatorId"')
-    //   .orderBy('p."createdAt"', "DESC")
-    //   .take(realLimitPlusOne);
 
-    // if (cursor) {
-    //   qb.where('p."createdAt" < :cursor', {
-    //     cursor: new Date(parseInt(cursor)),
-    //   });
-    // }
-
-    // const posts = await qb.getMany();
-    // console.log("post", posts);
     return {
       posts: posts.slice(0, realLimit),
       hasMore: posts.length === realLimitPlusOne,

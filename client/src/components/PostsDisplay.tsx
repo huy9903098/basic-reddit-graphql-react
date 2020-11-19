@@ -8,16 +8,19 @@ import { UpdootSection } from "./UpdootSection";
 interface PostsDisplayProps {
   exceptionId?: number;
   keyword?: string | null;
+  creatorId?: number | null;
 }
 
 export const PostsDisplay: React.FC<PostsDisplayProps> = ({
   exceptionId,
   keyword,
+  creatorId,
 }) => {
   const [variables, setVariables] = useState({
     limit: 15,
     cursor: null as null | string,
     keyword,
+    creatorId: null as null | number,
   });
 
   const [{ data, fetching }] = usePostsQuery({
@@ -28,14 +31,15 @@ export const PostsDisplay: React.FC<PostsDisplayProps> = ({
     return <div>You got no post for some reason</div>;
   }
 
-  if (keyword) {
+  if (keyword || creatorId) {
     useEffect(() => {
       setVariables({
         limit: variables.limit,
         cursor: null,
-        keyword: keyword,
+        keyword: keyword ? keyword : null,
+        creatorId: creatorId ? creatorId : null,
       });
-    }, [keyword]);
+    }, [keyword, creatorId]);
   }
 
   return (
@@ -44,8 +48,8 @@ export const PostsDisplay: React.FC<PostsDisplayProps> = ({
         <div>Loading...</div>
       ) : (
         <Stack spacing={8}>
-          {data!.posts.posts.map((p) =>
-            p && p.id !== exceptionId ? (
+          {data!.posts.posts.length >0 ? data!.posts.posts.map((p) => {
+            return p && p.id !== exceptionId ? (
               <Flex key={p.id} shadow="md" p={5} borderWidth="1px">
                 <UpdootSection
                   post={{
@@ -61,7 +65,12 @@ export const PostsDisplay: React.FC<PostsDisplayProps> = ({
                     </Link>
                   </NextLink>
 
-                  <Text>posted by {p.creator.username} </Text>
+                  <Text>
+                    posted by{" "}
+                    <NextLink href="/user/[id]" as={`/user/${p.creator.id}`}>
+                      <Link><b>{p.creator.username}</b></Link>
+                    </NextLink>
+                  </Text>
 
                   <Flex align="center">
                     <Text mt={1}>{p.textSnippet}</Text>
@@ -75,11 +84,11 @@ export const PostsDisplay: React.FC<PostsDisplayProps> = ({
                   </Flex>
                 </Box>
               </Flex>
-            ) : null
-          )}
+            ) : null;
+          }): null}
         </Stack>
       )}
-      {data && data.posts.hasMore ? (
+      {data && data.posts.posts && data.posts.hasMore ? (
         <Flex>
           <Button
             onClick={() => {
@@ -87,6 +96,7 @@ export const PostsDisplay: React.FC<PostsDisplayProps> = ({
                 limit: variables.limit,
                 cursor: data.posts.posts[data.posts.posts.length - 1].createdAt,
                 keyword,
+                creatorId:null
               });
             }}
             isLoading={fetching}

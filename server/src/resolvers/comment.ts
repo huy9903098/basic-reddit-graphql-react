@@ -4,6 +4,7 @@ import {
   Ctx,
   Field,
   FieldResolver,
+  InputType,
   Int,
   Mutation,
   ObjectType,
@@ -25,6 +26,15 @@ class PaginatedComments {
   hasMore: Boolean;
 }
 
+@InputType()
+class CommentInput {
+  @Field()
+  text: string;
+
+  @Field()
+  postId: number;
+}
+
 @Resolver(Comment)
 export class CommentResolver {
   @FieldResolver(() => User)
@@ -36,13 +46,11 @@ export class CommentResolver {
   @Mutation(() => Comment)
   @UseMiddleware(isAuth)
   async createComment(
-    @Arg("postId", () => Int) postId: number,
-    @Arg("text") text: string,
+    @Arg("input") input: CommentInput,
     @Ctx() { req }: MyContext
   ): Promise<Comment> {
     return Comment.create({
-      postId,
-      text,
+      ...input,
       userId: req.session.userId,
     }).save();
   }

@@ -4,11 +4,12 @@ import {
   Ctx,
   Field,
   FieldResolver,
+  Int,
   Mutation,
   ObjectType,
   Query,
   Resolver,
-  Root,
+  Root
 } from "type-graphql";
 import { getConnection } from "typeorm";
 import { v4 } from "uuid";
@@ -246,5 +247,10 @@ export class UserResolver {
         resolve(true);
       })
     );
+  }
+
+  @Query(() => User, { nullable: true })
+  async userById(@Arg("id", () => Int) id: number, @Ctx() { req }: MyContext) {
+    return await User.findOne(id);
   }
 }

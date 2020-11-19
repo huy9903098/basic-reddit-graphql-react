@@ -15,10 +15,10 @@ export type Scalars = {
 export type Query = {
   __typename?: 'Query';
   getCommentByPostId: PaginatedComments;
-  postsByUserId: PaginatedPosts;
   posts: PaginatedPosts;
   post?: Maybe<Post>;
   me?: Maybe<User>;
+  userById?: Maybe<User>;
 };
 
 
@@ -29,14 +29,8 @@ export type QueryGetCommentByPostIdArgs = {
 };
 
 
-export type QueryPostsByUserIdArgs = {
-  creatorId?: Maybe<Scalars['Int']>;
-  cursor?: Maybe<Scalars['String']>;
-  limit: Scalars['Int'];
-};
-
-
 export type QueryPostsArgs = {
+  creatorId?: Maybe<Scalars['Int']>;
   keyword?: Maybe<Scalars['String']>;
   cursor?: Maybe<Scalars['String']>;
   limit: Scalars['Int'];
@@ -44,6 +38,11 @@ export type QueryPostsArgs = {
 
 
 export type QueryPostArgs = {
+  id: Scalars['Int'];
+};
+
+
+export type QueryUserByIdArgs = {
   id: Scalars['Int'];
 };
 
@@ -112,8 +111,7 @@ export type Mutation = {
 
 
 export type MutationCreateCommentArgs = {
-  text: Scalars['String'];
-  postId: Scalars['Int'];
+  input: CommentInput;
 };
 
 
@@ -170,6 +168,11 @@ export type MutationRegisterArgs = {
 export type MutationLoginArgs = {
   password: Scalars['String'];
   usernameOrEmail: Scalars['String'];
+};
+
+export type CommentInput = {
+  text: Scalars['String'];
+  postId: Scalars['Float'];
 };
 
 export type PostInput = {
@@ -239,6 +242,19 @@ export type ChangePasswordMutation = (
   ) }
 );
 
+export type CreateCommentMutationVariables = Exact<{
+  input: CommentInput;
+}>;
+
+
+export type CreateCommentMutation = (
+  { __typename?: 'Mutation' }
+  & { createComment: (
+    { __typename?: 'Comment' }
+    & Pick<Comment, 'id' | 'text' | 'userId' | 'postId'>
+  ) }
+);
+
 export type CreatePostMutationVariables = Exact<{
   input: PostInput;
 }>;
@@ -250,6 +266,16 @@ export type CreatePostMutation = (
     { __typename?: 'Post' }
     & Pick<Post, 'id' | 'points' | 'creatorId' | 'text' | 'title' | 'createdAt' | 'updatedAt'>
   ) }
+);
+
+export type DeleteCommentMutationVariables = Exact<{
+  id: Scalars['Int'];
+}>;
+
+
+export type DeleteCommentMutation = (
+  { __typename?: 'Mutation' }
+  & Pick<Mutation, 'deleteComment'>
 );
 
 export type DeletePostMutationVariables = Exact<{
@@ -333,24 +359,24 @@ export type VoteMutation = (
   & Pick<Mutation, 'vote'>
 );
 
-export type GetCommentsByPostIdQueryVariables = Exact<{
+export type GetCommentByPostIdQueryVariables = Exact<{
   postId: Scalars['Int'];
   limit: Scalars['Int'];
   cursor?: Maybe<Scalars['String']>;
 }>;
 
 
-export type GetCommentsByPostIdQuery = (
+export type GetCommentByPostIdQuery = (
   { __typename?: 'Query' }
   & { getCommentByPostId: (
     { __typename?: 'PaginatedComments' }
     & Pick<PaginatedComments, 'hasMore'>
     & { comments: Array<(
       { __typename?: 'Comment' }
-      & Pick<Comment, 'id' | 'userId' | 'text'>
+      & Pick<Comment, 'id' | 'userId' | 'text' | 'createdAt'>
       & { user: (
         { __typename?: 'User' }
-        & Pick<User, 'username'>
+        & Pick<User, 'id' | 'username'>
       ) }
     )> }
   ) }
@@ -388,6 +414,7 @@ export type PostsQueryVariables = Exact<{
   limit: Scalars['Int'];
   cursor?: Maybe<Scalars['String']>;
   keyword?: Maybe<Scalars['String']>;
+  creatorId?: Maybe<Scalars['Int']>;
 }>;
 
 
@@ -403,23 +430,17 @@ export type PostsQuery = (
   ) }
 );
 
-export type PostsByUserIdQueryVariables = Exact<{
-  limit: Scalars['Int'];
-  cursor?: Maybe<Scalars['String']>;
-  creatorId: Scalars['Int'];
+export type UserByIdQueryVariables = Exact<{
+  id: Scalars['Int'];
 }>;
 
 
-export type PostsByUserIdQuery = (
+export type UserByIdQuery = (
   { __typename?: 'Query' }
-  & { postsByUserId: (
-    { __typename?: 'PaginatedPosts' }
-    & Pick<PaginatedPosts, 'hasMore'>
-    & { posts: Array<(
-      { __typename?: 'Post' }
-      & PostSnippetFragment
-    )> }
-  ) }
+  & { userById?: Maybe<(
+    { __typename?: 'User' }
+    & Pick<User, 'username' | 'id'>
+  )> }
 );
 
 export const PostSnippetFragmentDoc = gql`
@@ -472,6 +493,20 @@ export const ChangePasswordDocument = gql`
 export function useChangePasswordMutation() {
   return Urql.useMutation<ChangePasswordMutation, ChangePasswordMutationVariables>(ChangePasswordDocument);
 };
+export const CreateCommentDocument = gql`
+    mutation createComment($input: CommentInput!) {
+  createComment(input: $input) {
+    id
+    text
+    userId
+    postId
+  }
+}
+    `;
+
+export function useCreateCommentMutation() {
+  return Urql.useMutation<CreateCommentMutation, CreateCommentMutationVariables>(CreateCommentDocument);
+};
 export const CreatePostDocument = gql`
     mutation createPost($input: PostInput!) {
   createPost(input: $input) {
@@ -488,6 +523,15 @@ export const CreatePostDocument = gql`
 
 export function useCreatePostMutation() {
   return Urql.useMutation<CreatePostMutation, CreatePostMutationVariables>(CreatePostDocument);
+};
+export const DeleteCommentDocument = gql`
+    mutation DeleteComment($id: Int!) {
+  deleteComment(id: $id)
+}
+    `;
+
+export function useDeleteCommentMutation() {
+  return Urql.useMutation<DeleteCommentMutation, DeleteCommentMutationVariables>(DeleteCommentDocument);
 };
 export const DeletePostDocument = gql`
     mutation DeletePost($id: Int!) {
@@ -561,24 +605,26 @@ export const VoteDocument = gql`
 export function useVoteMutation() {
   return Urql.useMutation<VoteMutation, VoteMutationVariables>(VoteDocument);
 };
-export const GetCommentsByPostIdDocument = gql`
-    query getCommentsByPostId($postId: Int!, $limit: Int!, $cursor: String) {
+export const GetCommentByPostIdDocument = gql`
+    query getCommentByPostId($postId: Int!, $limit: Int!, $cursor: String) {
   getCommentByPostId(postId: $postId, cursor: $cursor, limit: $limit) {
     comments {
       id
       userId
       text
       user {
+        id
         username
       }
+      createdAt
     }
     hasMore
   }
 }
     `;
 
-export function useGetCommentsByPostIdQuery(options: Omit<Urql.UseQueryArgs<GetCommentsByPostIdQueryVariables>, 'query'> = {}) {
-  return Urql.useQuery<GetCommentsByPostIdQuery>({ query: GetCommentsByPostIdDocument, ...options });
+export function useGetCommentByPostIdQuery(options: Omit<Urql.UseQueryArgs<GetCommentByPostIdQueryVariables>, 'query'> = {}) {
+  return Urql.useQuery<GetCommentByPostIdQuery>({ query: GetCommentByPostIdDocument, ...options });
 };
 export const MeDocument = gql`
     query Me {
@@ -614,8 +660,8 @@ export function usePostQuery(options: Omit<Urql.UseQueryArgs<PostQueryVariables>
   return Urql.useQuery<PostQuery>({ query: PostDocument, ...options });
 };
 export const PostsDocument = gql`
-    query Posts($limit: Int!, $cursor: String, $keyword: String) {
-  posts(cursor: $cursor, limit: $limit, keyword: $keyword) {
+    query Posts($limit: Int!, $cursor: String, $keyword: String, $creatorId: Int) {
+  posts(cursor: $cursor, limit: $limit, keyword: $keyword, creatorId: $creatorId) {
     hasMore
     posts {
       ...PostSnippet
@@ -627,17 +673,15 @@ export const PostsDocument = gql`
 export function usePostsQuery(options: Omit<Urql.UseQueryArgs<PostsQueryVariables>, 'query'> = {}) {
   return Urql.useQuery<PostsQuery>({ query: PostsDocument, ...options });
 };
-export const PostsByUserIdDocument = gql`
-    query postsByUserId($limit: Int!, $cursor: String, $creatorId: Int!) {
-  postsByUserId(cursor: $cursor, limit: $limit, creatorId: $creatorId) {
-    hasMore
-    posts {
-      ...PostSnippet
-    }
+export const UserByIdDocument = gql`
+    query UserById($id: Int!) {
+  userById(id: $id) {
+    username
+    id
   }
 }
-    ${PostSnippetFragmentDoc}`;
+    `;
 
-export function usePostsByUserIdQuery(options: Omit<Urql.UseQueryArgs<PostsByUserIdQueryVariables>, 'query'> = {}) {
-  return Urql.useQuery<PostsByUserIdQuery>({ query: PostsByUserIdDocument, ...options });
+export function useUserByIdQuery(options: Omit<Urql.UseQueryArgs<UserByIdQueryVariables>, 'query'> = {}) {
+  return Urql.useQuery<UserByIdQuery>({ query: UserByIdDocument, ...options });
 };

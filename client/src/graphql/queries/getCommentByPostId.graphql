@@ -1,12 +1,14 @@
-query getCommentsByPostId($postId: Int!, $limit: Int!, $cursor: String) {
+query getCommentByPostId($postId: Int!, $limit: Int!, $cursor: String) {
   getCommentByPostId(postId: $postId, cursor: $cursor, limit: $limit) {
     comments {
       id
       userId
       text
-      user{
+      user {
+        id
         username
       }
+      createdAt
     }
     hasMore
   }

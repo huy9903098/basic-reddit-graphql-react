@@ -4,19 +4,29 @@ import { useRouter } from "next/router";
 import React from "react";
 import { Layout } from "../../components/Layout";
 import { PostsDisplay } from "../../components/PostsDisplay";
+import { useUserByIdQuery } from "../../generated/graphql";
 import { createUrqlClient } from "../../utils/createUrqlClient";
 
 const Search = ({}) => {
   const router = useRouter();
-  const keyword =
-    typeof router.query.key === "string" ? decodeURI(router.query.key) : null;
+  const intId =
+  typeof router.query.id === "string" ? parseInt(router.query.id) : -1;
+  const [{ data, error, fetching }] = useUserByIdQuery({
+    variables: {
+      id: intId
+    }
+  });
+
+  if(fetching && !data){
+    return <div>Loading...</div>
+  }
   return (
     <Layout>
       <>
         <Heading mb={10} textAlign="center">
-          Search by key word "{keyword}"
+          Posted by "{data?.userById?.username}"
         </Heading>
-        <PostsDisplay keyword={keyword} />
+        <PostsDisplay creatorId={intId} />
       </>
     </Layout>
   );

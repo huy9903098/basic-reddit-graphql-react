@@ -1,8 +1,0 @@
-query postsByUserId($limit: Int!, $cursor: String, $creatorId: Int!) {
-  postsByUserId(cursor: $cursor, limit: $limit, creatorId: $creatorId) {
-    hasMore
-    posts {
-      ...PostSnippet
-    }
-  }
-}
