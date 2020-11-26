@@ -2,6 +2,7 @@ import { Box, Button, Flex, Heading, Link, Stack, Text } from "@chakra-ui/core";
 import NextLink from "next/link";
 import React, { useEffect, useState } from "react";
 import { usePostsQuery } from "../generated/graphql";
+import { differentDate } from "../utils/differentDate";
 import { EditDeletePostButton } from "./EditDeletePostButton";
 import { UpdootSection } from "./UpdootSection";
 
@@ -64,6 +65,7 @@ export const PostsDisplay: React.FC<PostsDisplayProps> = ({
                       <Heading fontSize="xl">{p.title}</Heading>
                     </Link>
                   </NextLink>
+                  <Text fontSize={14} color="gray.500">({differentDate(p.createdAt)})</Text>
 
                   <Text>
                     posted by{" "}

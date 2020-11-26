@@ -5,7 +5,8 @@ import {
   Flex,
   Heading,
   Link,
-  Stack
+  Stack,
+  Text
 } from "@chakra-ui/core";
 import { Form, Formik } from "formik";
 import { withUrqlClient } from "next-urql";
@@ -24,6 +25,7 @@ import {
   usePostQuery
 } from "../../generated/graphql";
 import { createUrqlClient } from "../../utils/createUrqlClient";
+import { differentDate } from "../../utils/differentDate";
 
 const Post = ({}) => {
   const router = useRouter();
@@ -87,6 +89,7 @@ const Post = ({}) => {
               <Flex alignItems="center" justifyContent="space-between">
                 <Box>
                   <Heading fontSize="xl">{data.post.title}</Heading>
+                  <Text fontSize={14} color="gray.500">({differentDate(data.post.createdAt)})</Text>
                 </Box>
                 <EditDeletePostButton
                   id={data.post.id}

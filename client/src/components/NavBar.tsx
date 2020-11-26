@@ -1,10 +1,11 @@
-import { Box, Button, Flex, Heading, Link } from "@chakra-ui/core";
+import { Box, Button, Flex, Heading, IconButton, Link } from "@chakra-ui/core";
 import NextLink from "next/link";
 import { useRouter } from "next/router";
 import React from "react";
 import { useLogoutMutation, useMeQuery } from "../generated/graphql";
 import { isServer } from "../utils/isServer";
 import { SearchBar } from "./SearchBar";
+
 
 interface NavBarProps {}
 
@@ -53,11 +54,12 @@ export const NavBar: React.FC<NavBarProps> = ({}) => {
     );
   }
   return (
-    <Flex zIndex={1} position="sticky" top={0} bg="tan" p={4}>
+    <Flex zIndex={1} position="sticky" top={0} bg="#B3B6B7" p={4}>
       <Flex flex={1} m="auto" align="center" maxW={800}>
+      
         <NextLink href="/">
           <Link>
-            <Heading>NotReddit</Heading>
+            <Heading><IconButton aria-label="Search database" size="lg" icon="chat" isRound /> Hotts</Heading>
           </Link>
         </NextLink>
         <Box ml="auto">

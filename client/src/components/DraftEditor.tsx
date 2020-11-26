@@ -23,7 +23,7 @@ export const DraftEditor: React.FC<DraftEditorProps> = ({}) => {
     <Editor
       ref={editor}
       editorState={editorState}
-      onChange={(editorState) => setEditorState(editorState)}
+      onChange={setEditorState}
     />
   );
 }

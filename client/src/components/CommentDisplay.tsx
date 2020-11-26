@@ -2,6 +2,7 @@ import { Box, Flex, IconButton, Link, Text } from "@chakra-ui/core";
 import NextLink from "next/link";
 import React, { useState } from "react";
 import { useDeleteCommentMutation, useMeQuery } from "../generated/graphql";
+import { differentDate } from "../utils/differentDate";
 
 interface CommentDisplayProps {
   comment: any;
@@ -12,23 +13,6 @@ export const CommentDisplay: React.FC<CommentDisplayProps> = ({ comment }) => {
   const [readMoreButton, setReadMoreButton] = useState(false);
   const [{ data: meData }] = useMeQuery();
   const [, deleteComment] = useDeleteCommentMutation();
-  const today = new Date();
-  const diffDateSecond = Math.floor(
-    (today.getTime() - comment.createdAt) / 1000
-  );
-  let timeage = "";
-  if (diffDateSecond < 60) {
-    timeage = diffDateSecond + " seconds ago";
-  } else if (diffDateSecond < 60 * 60) {
-    const timeDay = Math.floor(diffDateSecond / 60);
-    timeage = timeDay + (timeDay > 1 ? " minutes ago" : " minute ago");
-  } else if (diffDateSecond < 60 * 60 * 24) {
-    const timeDay = Math.floor(diffDateSecond / (60 * 60));
-    timeage = timeDay + (timeDay > 1 ? " hours ago" : " hour ago");
-  } else {
-    const timeDay = Math.floor(diffDateSecond / (60 * 60 * 24));
-    timeage = timeDay + (timeDay > 1 ? " days ago" : " day ago");
-  }
   return (
     <Flex>
       <Box flex={1}>
@@ -40,7 +24,7 @@ export const CommentDisplay: React.FC<CommentDisplayProps> = ({ comment }) => {
               </Link>
             </NextLink>
           </Text>
-          <Text color="gray.500">({timeage})</Text>
+          <Text color="gray.500">({differentDate(comment.createdAt)})</Text>
         </Box>
 
         <Flex align="center">

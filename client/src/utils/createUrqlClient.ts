@@ -136,7 +136,6 @@ export const cursorPagination = (): Resolver => {
 
 function invalidateAllPosts(cache: Cache) {
   const allFields = cache.inspectFields("Query");
-  console.log("allFields", allFields);
   const fieldInfos = allFields.filter((info) => info.fieldName === "posts");
 
   fieldInfos.forEach((fi) => {
@@ -160,7 +159,7 @@ export const createUrqlClient = (ssrExchange: any, ctx: any) => {
     cookie = ctx?.req?.headers?.cookie;
   }
   return {
-    url: "http://localhost:4000/graphql",
+    url: process.env.NEXT_PUBLIC_API_URL,
     fetchOptions: {
       credentials: "include" as const,
       headers: cookie
@@ -168,7 +167,7 @@ export const createUrqlClient = (ssrExchange: any, ctx: any) => {
             cookie,
           }
         : undefined,
-    }, //send cookie -> need cookies to register
+    }, //send cookie -> need cookies to register 
     exchanges: [
       dedupExchange,
       cacheExchange({
