@@ -10,10 +10,11 @@ import "reflect-metadata";
 import { buildSchema } from "type-graphql";
 import { createConnection } from "typeorm";
 import { COOKIE_NAME, __prod__ } from "./constants";
+import { Comment } from "./entities/Comment";
 import { Post } from "./entities/Post";
 import { Updoot } from "./entities/Updoot";
 import { User } from "./entities/User";
-import { HelloResolver } from "./resolvers/hello";
+import { CommentResolver } from "./resolvers/comment";
 import { PostResolver } from "./resolvers/post";
 import { UserResolver } from "./resolvers/user";
 import { createUpdootLoader } from "./utils/createUpdootLoader";
@@ -23,13 +24,11 @@ import { createUserLoader } from "./utils/createUserLoader";
 const main = async () => {
   const conn = await createConnection({
     type: "postgres",
-    database: "bookweb2",
-    username: "postgres",
-    password: "postgres",
+    url: process.env.DATABASE_URL,
     logging: true,
-    synchronize: true,
+    // synchronize: true,
     migrations: [path.join(__dirname, "./migrations/*")],
-    entities: [Post, User, Updoot],
+    entities: [Post, User, Updoot, Comment],
   });
 
   await conn.runMigrations();
@@ -37,15 +36,16 @@ const main = async () => {
   const app = express();
 
   const RedisStore = connectRedis(session);
-  const redis = new Redis();
+  const redis = new Redis(process.env.REDIS_URL);
 
   app.use(
     cors({
-      origin: "http://localhost:3000",
+      origin: process.env.CORS_ORIGIN,
       credentials: true,
     })
   );
 
+  app.set("proxy",1)
   app.use(
     session({
       name: COOKIE_NAME,
@@ -57,17 +57,18 @@ const main = async () => {
         maxAge: 1000 * 60 * 60 * 24, //1 days
         httpOnly: true,
         secure: __prod__, //cookies only work on https
+        domain: __prod__ ? ".codeponder.com" : undefined,
         sameSite: "lax",
       },
       saveUninitialized: false,
-      secret: "book is knowledge",
+      secret: process.env.SESSION_SECRET,
       resave: false,
     })
   );
 
   const apolloServer = new ApolloServer({
     schema: await buildSchema({
-      resolvers: [HelloResolver, UserResolver, PostResolver],
+      resolvers: [CommentResolver, UserResolver, PostResolver],
       validate: false,
     }),
     context: ({ req, res }) => ({
@@ -83,7 +84,7 @@ const main = async () => {
     app,
     cors: false,
   });
-  app.listen(4000, () => {
+  app.listen(parseInt(process.env.PORT), () => {
     console.log("server started on localhost:4000");
   });
   // const post = orm.em.create(Post, { title: "my first post" });

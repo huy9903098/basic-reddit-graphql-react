@@ -14,7 +14,7 @@ const CreatePost: React.FC<{}> = ({}) => {
   const [, createPost] = useCreatePostMutation();
   useIsAuth();
   return (
-    <Layout variant="small">
+    <Layout>
       <Formik
         initialValues={{ title: "", text: "" }}
         onSubmit={async (values) => {
@@ -51,4 +51,4 @@ const CreatePost: React.FC<{}> = ({}) => {
   );
 };
 
-export default withUrqlClient(createUrqlClient)(CreatePost);
+export default withUrqlClient(createUrqlClient, { ssr: false })(CreatePost);

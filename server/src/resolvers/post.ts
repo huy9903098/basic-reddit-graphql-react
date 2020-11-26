@@ -10,9 +10,10 @@ import {
   Query,
   Resolver,
   Root,
-  UseMiddleware,
+  UseMiddleware
 } from "type-graphql";
 import { getConnection } from "typeorm";
+import { Comment } from "./../entities/Comment";
 import { Post } from "./../entities/Post";
 import { Updoot } from "./../entities/Updoot";
 import { User } from "./../entities/User";
@@ -125,45 +126,51 @@ export class PostResolver {
     return true;
   }
 
+
   @Query(() => PaginatedPosts)
   async posts(
     @Arg("limit", () => Int) limit: number,
     @Arg("cursor", () => String, { nullable: true }) cursor: string | null,
+    @Arg("keyword", () => String, { nullable: true }) keyword: string | null,
+    @Arg("creatorId", () => Int, { nullable: true }) creatorId: number | null,
     @Ctx() { req }: MyContext
   ): Promise<PaginatedPosts> {
     const realLimit = Math.min(50, limit);
     const realLimitPlusOne = realLimit + 1;
     const replacements: any[] = [realLimitPlusOne];
-
+    if (keyword) {
+      replacements.push(keyword);
+    }
     if (cursor) {
       replacements.push(new Date(parseInt(cursor)));
     }
+
+    const byUserId =
+      replacements.length > 1
+        ? ` and p."creatorId"=${creatorId}`
+        : `where p."creatorId"=${creatorId}`;
 
     const posts = await getConnection().query(
       `
     select p.*
     from post p
-    ${cursor ? `where p."createdAt" < $2` : ""}
+    ${
+      keyword
+        ? `where to_tsvector(p.title || ' ' || p.text) @@ to_tsquery($2)`
+        : ""
+    }${
+        cursor
+          ? keyword
+            ? ` and p."createdAt" < $3`
+            : `where p."createdAt" < $2`
+          : ""
+      }${creatorId ? byUserId : ""}
     order by p."createdAt" DESC
     limit $1
     `,
       replacements
     );
-    // const qb = getConnection()
-    //   .getRepository(Post)
-    //   .createQueryBuilder("p")
-    //   .innerJoinAndSelect("p.creator", "u", 'u.id = p."creatorId"')
-    //   .orderBy('p."createdAt"', "DESC")
-    //   .take(realLimitPlusOne);
 
-    // if (cursor) {
-    //   qb.where('p."createdAt" < :cursor', {
-    //     cursor: new Date(parseInt(cursor)),
-    //   });
-    // }
-
-    // const posts = await qb.getMany();
-    // console.log("post", posts);
     return {
       posts: posts.slice(0, realLimit),
       hasMore: posts.length === realLimitPlusOne,
@@ -172,7 +179,7 @@ export class PostResolver {
 
   @Query(() => Post, { nullable: true })
   post(@Arg("id", () => Int) id: number): Promise<Post | undefined> {
-    return Post.findOne(id);
+    return Post.findOne(id, { relations: ["creator"] });
   }
 
   @Mutation(() => Post)
@@ -187,25 +194,35 @@ export class PostResolver {
     }).save();
   }
 
-  @Mutation(() => Post, { nullable: true })
-  async updatePost(
-    @Arg("id") id: number,
-    @Arg("title", () => String, { nullable: true }) title: string
-  ): Promise<Post | null> {
-    const post = await Post.findOne(id);
-    if (!post) {
-      return null;
-    }
-    if (typeof title !== "undefined") {
-      await Post.update({ id }, { title });
-    }
-
-    return post;
+  @Mutation(() => Boolean)
+  @UseMiddleware(isAuth)
+  async deletePost(
+    @Arg("id", () => Int) id: number,
+    @Ctx() { req }: MyContext
+  ): Promise<boolean> {
+    await Comment.delete({ postId: id });
+    await Post.delete({ id, creatorId: req.session.userId });
+    return true;
   }
 
-  @Mutation(() => Boolean)
-  async deletePost(@Arg("id") id: number): Promise<boolean> {
-    await Post.delete(id);
-    return true;
+  @Mutation(() => Post, { nullable: true })
+  @UseMiddleware(isAuth)
+  async updatePost(
+    @Arg("id", () => Int) id: number,
+    @Arg("title") title: string,
+    @Arg("text") text: string,
+    @Ctx() { req }: MyContext
+  ): Promise<Post | null> {
+    const result = await getConnection()
+      .createQueryBuilder()
+      .update(Post)
+      .set({ title, text })
+      .where('id = :id and "creatorId" = :creatorId', {
+        id,
+        creatorId: req.session.userId,
+      })
+      .returning("*")
+      .execute();
+    return result.raw[0];
   }
 }

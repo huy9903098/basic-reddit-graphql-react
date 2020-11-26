@@ -5,15 +5,16 @@ import {
   dedupExchange,
   Exchange,
   fetchExchange,
-  stringifyVariables,
+  stringifyVariables
 } from "urql";
 import { pipe, tap } from "wonka";
 import {
+  DeletePostMutationVariables,
   LoginMutation,
   LogoutMutation,
   MeDocument,
   MeQuery,
-  RegisterMutation,
+  RegisterMutation
 } from "../generated/graphql";
 import { VoteMutationVariables } from "./../generated/graphql";
 import { betterUpdateQuery } from "./betterUpdateQuery";
@@ -31,11 +32,52 @@ const errorExchange: Exchange = ({ forward }) => (ops$) => {
   );
 };
 
+export const commentPagination = (): Resolver => {
+  return (_parent, fieldArgs, cache, info) => {
+    const { parentKey: entityKey, fieldName } = info;
+    const allFields = cache.inspectFields(entityKey);
+
+    const fieldInfos = allFields.filter((info) => info.fieldName === fieldName);
+
+    const size = fieldInfos.length;
+    if (size === 0) {
+      return undefined;
+    }
+    const fieldKey = `${fieldName}(${stringifyVariables(fieldArgs)})`;
+
+    const isItInTheCache = cache.resolve(
+      cache.resolveFieldByKey(entityKey, fieldKey) as string,
+      "commentsByPostId"
+    );
+    info.partial = !isItInTheCache;
+    let hasMore = true;
+    let results: string[] = [];
+    fieldInfos.forEach((fi) => {
+      if (fieldArgs.postId && fi.arguments?.postId === fieldArgs.postId) {
+        const key = cache.resolveFieldByKey(entityKey, fi.fieldKey) as string;
+        const data = cache.resolve(key, "comments") as string[];
+        const _hasMore = cache.resolve(key, "hasMore");
+        if (!_hasMore) {
+          hasMore = _hasMore as boolean;
+        }
+        results.push(...data);
+      }
+    });
+    return {
+      __typename: "PaginatedComments",
+      hasMore,
+      comments: results,
+    };
+  };
+};
+
 export const cursorPagination = (): Resolver => {
   return (_parent, fieldArgs, cache, info) => {
     const { parentKey: entityKey, fieldName } = info;
     const allFields = cache.inspectFields(entityKey);
+
     const fieldInfos = allFields.filter((info) => info.fieldName === fieldName);
+
     const size = fieldInfos.length;
     if (size === 0) {
       return undefined;
@@ -48,17 +90,42 @@ export const cursorPagination = (): Resolver => {
     );
     info.partial = !isItInTheCache;
     let hasMore = true;
+
     const results: string[] = [];
     fieldInfos.forEach((fi) => {
-      const key = cache.resolveFieldByKey(entityKey, fi.fieldKey) as string;
-      const data = cache.resolve(key, "posts") as string[];
-      const _hasMore = cache.resolve(key, "hasMore");
-      if (!_hasMore) {
-        hasMore = _hasMore as boolean;
-      }
-      results.push(...data);
-    });
+      if (fieldArgs.keyword && fi.arguments?.keyword === fieldArgs.keyword) {
+        //cache for different keyword search queery
+        const key = cache.resolveFieldByKey(entityKey, fi.fieldKey) as string;
+        const data = cache.resolve(key, "posts") as string[];
+        const _hasMore = cache.resolve(key, "hasMore");
 
+        if (!_hasMore) {
+          hasMore = _hasMore as boolean;
+        }
+        results.push(...data);
+      } else {
+        if (
+          (fieldArgs.creatorId &&
+            fi.arguments?.creatorId === fieldArgs.creatorId &&
+            !fieldArgs.keyword &&
+            !fi.arguments?.keyword) ||
+          (!fieldArgs.creatorId &&
+            !fi.arguments?.creatorId &&
+            !fieldArgs.keyword &&
+            !fi.arguments?.keyword)
+        ) {
+          //cache for different keyword search queery
+          const key = cache.resolveFieldByKey(entityKey, fi.fieldKey) as string;
+          const data = cache.resolve(key, "posts") as string[];
+          const _hasMore = cache.resolve(key, "hasMore");
+
+          if (!_hasMore) {
+            hasMore = _hasMore as boolean;
+          }
+          results.push(...data);
+        }
+      }
+    });
     return {
       __typename: "PaginatedPosts",
       hasMore,
@@ -70,18 +137,29 @@ export const cursorPagination = (): Resolver => {
 function invalidateAllPosts(cache: Cache) {
   const allFields = cache.inspectFields("Query");
   const fieldInfos = allFields.filter((info) => info.fieldName === "posts");
+
   fieldInfos.forEach((fi) => {
     cache.invalidate("Query", "posts", fi.arguments || {});
+  });
+}
+
+function invalidateAllComments(cache: Cache) {
+  const allFields = cache.inspectFields("Query");
+  const fieldInfos = allFields.filter(
+    (info) => info.fieldName === "getCommentByPostId"
+  );
+  fieldInfos.forEach((fi) => {
+    cache.invalidate("Query", "getCommentByPostId", fi.arguments || {});
   });
 }
 
 export const createUrqlClient = (ssrExchange: any, ctx: any) => {
   let cookie = "";
   if (isServer()) {
-    cookie = ctx.req.headers.cookie;
+    cookie = ctx?.req?.headers?.cookie;
   }
   return {
-    url: "http://localhost:4000/graphql",
+    url: process.env.NEXT_PUBLIC_API_URL,
     fetchOptions: {
       credentials: "include" as const,
       headers: cookie
@@ -89,20 +167,28 @@ export const createUrqlClient = (ssrExchange: any, ctx: any) => {
             cookie,
           }
         : undefined,
-    }, //send cookie -> need cookies to register
+    }, //send cookie -> need cookies to register 
     exchanges: [
       dedupExchange,
       cacheExchange({
         keys: {
           PaginatedPosts: () => null,
+          PaginatedComments: () => null,
         },
         resolvers: {
           Query: {
             posts: cursorPagination(),
+            getCommentByPostId: commentPagination(),
           },
         },
         updates: {
           Mutation: {
+            deletePost: (_result, args, cache, info) => {
+              cache.invalidate({
+                __typename: "Post",
+                id: (args as DeletePostMutationVariables).id,
+              });
+            },
             vote: (_result, args, cache, info) => {
               const { postId, value } = args as VoteMutationVariables;
               const data = cache.readFragment(
@@ -135,6 +221,7 @@ export const createUrqlClient = (ssrExchange: any, ctx: any) => {
             },
             createPost: (_result, args, cache, info) => {
               invalidateAllPosts(cache);
+              invalidateAllComments(cache);
             },
             logout: (_result, args, cache, info) => {
               betterUpdateQuery<LogoutMutation, MeQuery>(
@@ -160,6 +247,15 @@ export const createUrqlClient = (ssrExchange: any, ctx: any) => {
                 }
               );
               invalidateAllPosts(cache);
+              invalidateAllComments(cache);
+            },
+            createComment: (_result, args, cache, info) => {
+              invalidateAllPosts(cache);
+              invalidateAllComments(cache);
+            },
+            deleteComment: (_result, args, cache, info) => {
+              invalidateAllPosts(cache);
+              invalidateAllComments(cache);
             },
             register: (_result, args, cache, info) => {
               betterUpdateQuery<RegisterMutation, MeQuery>(
