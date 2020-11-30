@@ -31,21 +31,21 @@ const main = async () => {
     entities: [Post, User, Updoot, Comment],
   });
 
-  await conn.runMigrations();
+  // await conn.runMigrations();
+
+    // await Post.delete({});
 
   const app = express();
 
   const RedisStore = connectRedis(session);
   const redis = new Redis(process.env.REDIS_URL);
-
+  app.set("trust proxy", 1);
   app.use(
     cors({
       origin: process.env.CORS_ORIGIN,
       credentials: true,
     })
   );
-
-  app.set("proxy",1)
   app.use(
     session({
       name: COOKIE_NAME,
@@ -54,11 +54,11 @@ const main = async () => {
         disableTouch: true,
       }),
       cookie: {
-        maxAge: 1000 * 60 * 60 * 24, //1 days
+        maxAge: 1000 * 60 * 60 * 24, // 10 years
         httpOnly: true,
-        secure: __prod__, //cookies only work on https
-        domain: __prod__ ? ".codeponder.com" : undefined,
-        sameSite: "lax",
+        sameSite: "lax", // csrf
+        secure: __prod__, // cookie only works in https
+        domain: __prod__ ? ".hotts.org" : undefined,
       },
       saveUninitialized: false,
       secret: process.env.SESSION_SECRET,
