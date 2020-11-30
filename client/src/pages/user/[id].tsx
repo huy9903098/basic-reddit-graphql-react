@@ -10,15 +10,19 @@ import { createUrqlClient } from "../../utils/createUrqlClient";
 const Search = ({}) => {
   const router = useRouter();
   const intId =
-  typeof router.query.id === "string" ? parseInt(router.query.id) : -1;
+    typeof router.query.id === "string" ? parseInt(router.query.id) : -1;
   const [{ data, error, fetching }] = useUserByIdQuery({
     variables: {
-      id: intId
-    }
+      id: intId,
+    },
   });
 
-  if(fetching && !data){
-    return <div>Loading...</div>
+  if (fetching && !data) {
+    return <div>Loading...</div>;
+  }
+
+  if (error) {
+    return <div>{error.message}</div>;
   }
   return (
     <Layout>

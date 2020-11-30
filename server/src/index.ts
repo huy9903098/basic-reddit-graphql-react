@@ -45,7 +45,7 @@ const main = async () => {
     })
   );
 
-  app.set("proxy",1)
+  app.set("proxy", 1);
   app.use(
     session({
       name: COOKIE_NAME,
@@ -57,7 +57,7 @@ const main = async () => {
         maxAge: 1000 * 60 * 60 * 24, //1 days
         httpOnly: true,
         secure: __prod__, //cookies only work on https
-        domain: __prod__ ? ".codeponder.com" : undefined,
+        domain: __prod__ ? ".hotts.org" : undefined,
         sameSite: "lax",
       },
       saveUninitialized: false,

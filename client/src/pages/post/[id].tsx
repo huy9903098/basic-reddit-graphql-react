@@ -57,6 +57,14 @@ const Post = ({}) => {
     );
   }
 
+  if (commentError) {
+    return (
+      <Layout>
+        <Box>{commentError.message}</Box>
+      </Layout>
+    );
+  }
+
   if (error) {
     return (
       <Layout>
@@ -89,7 +97,9 @@ const Post = ({}) => {
               <Flex alignItems="center" justifyContent="space-between">
                 <Box>
                   <Heading fontSize="xl">{data.post.title}</Heading>
-                  <Text fontSize={14} color="gray.500">({differentDate(data.post.createdAt)})</Text>
+                  <Text fontSize={14} color="gray.500">
+                    ({differentDate(data.post.createdAt)})
+                  </Text>
                 </Box>
                 <EditDeletePostButton
                   id={data.post.id}
@@ -130,7 +140,6 @@ const Post = ({}) => {
                           <InputField
                             textarea
                             name="text"
-                            size={100}
                             placeholder="text..."
                           />
                         </Box>
