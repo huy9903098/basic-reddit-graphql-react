@@ -104,15 +104,18 @@ export class CommentResolver {
       `
     select c.*
     from comment c
-    ${cursor ? `where c."createdAt" < $2 ` : ""}
-    where c."postId" = ${postId}
+    ${
+      cursor
+        ? `where c."createdAt" < $2 AND c."postId" = ${postId}`
+        : `where c."postId" = ${postId}`
+    }
     order by c."createdAt" DESC
     limit $1
     `,
       replacements
     );
     return {
-      comments: comments,
+      comments: comments.slice(0, realLimit),
       hasMore: comments.length === realLimitPlusOne,
     };
   }

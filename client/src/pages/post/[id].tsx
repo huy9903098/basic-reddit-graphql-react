@@ -12,7 +12,7 @@ import { Form, Formik } from "formik";
 import { withUrqlClient } from "next-urql";
 import NextLink from "next/link";
 import { useRouter } from "next/router";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { CommentDisplay } from "../../components/CommentDisplay";
 import { EditDeletePostButton } from "../../components/EditDeletePostButton";
 import { InputField } from "../../components/InputField";
@@ -39,15 +39,27 @@ const Post = ({}) => {
   });
   const [, createComment] = useCreateCommentMutation();
 
+  const [variables, setVariables] = useState({
+    postId: intId,
+    limit: 3,
+    cursor: null as null | string,
+  });
+
   const [
     { data: commentsData, error: commentError, fetching: commentFetching },
   ] = useGetCommentByPostIdQuery({
-    variables: {
-      postId: intId,
-      limit: 15,
-      cursor: null as null | string,
-    },
+    variables,
   });
+
+  if (intId) {
+    useEffect(() => {
+      setVariables({
+        postId: intId,
+        limit: variables.limit,
+        cursor: null as null | string,
+      });
+    }, [intId]);
+  }
 
   if (fetching) {
     return (
@@ -84,7 +96,7 @@ const Post = ({}) => {
     <>
       <Layout>
         <Stack mb={4} spacing={8}>
-          <Flex shadow="md" p={5} borderWidth="1px">
+          <Flex shadow="md" bg="white" p={5} borderWidth="1px">
             <UpdootSection
               post={{
                 id: data.post.id,
@@ -130,6 +142,7 @@ const Post = ({}) => {
                     if (!error) {
                       router.push(`/post/${intId}`);
                       resetForm();
+                      router.reload();
                     }
                   }}
                 >
@@ -146,7 +159,8 @@ const Post = ({}) => {
 
                         <Button
                           type="submit"
-                          variantColor="teal"
+                          backgroundColor="#02699c"
+                          color="white"
                           mt={4}
                           isLoading={isSubmitting}
                         >
@@ -169,21 +183,48 @@ const Post = ({}) => {
                   <>
                     {commentsData!.getCommentByPostId.comments
                       ? commentsData!.getCommentByPostId.comments.map(
-                          (comment) => (
-                            <Stack
-                              key={comment.id}
-                              pb={5}
-                              mb={5}
-                              mt={5}
-                              style={{
-                                borderBottom: "1px solid rgb(230, 230, 230)",
-                              }}
-                            >
-                              <CommentDisplay comment={comment} />
-                            </Stack>
-                          )
+                          (comment) =>
+                            !comment ? null : (
+                              <Stack
+                                key={comment.id}
+                                pb={5}
+                                mb={5}
+                                mt={5}
+                                style={{
+                                  borderBottom: "1px solid rgb(230, 230, 230)",
+                                }}
+                              >
+                                <CommentDisplay comment={comment} />
+                              </Stack>
+                            )
                         )
                       : null}
+                    {commentsData &&
+                    commentsData.getCommentByPostId.comments &&
+                    commentsData.getCommentByPostId.hasMore ? (
+                      <Flex>
+                        <Button
+                          onClick={() => {
+                            setVariables({
+                              postId: variables.postId,
+                              limit: 5,
+                              cursor:
+                                commentsData.getCommentByPostId.comments[
+                                  commentsData.getCommentByPostId.comments
+                                    .length - 1
+                                ].createdAt,
+                            });
+                          }}
+                          isLoading={fetching}
+                          m="auto"
+                          my={4}
+                          backgroundColor="#5c9dc0"
+                          color="white"
+                        >
+                          Show more comments
+                        </Button>
+                      </Flex>
+                    ) : null}
                   </>
                 )}
               </Box>

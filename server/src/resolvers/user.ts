@@ -130,18 +130,18 @@ export class UserResolver {
 
     await sendEmail(
       email,
-      `<a href="http://localhost:3000/change-password/${token}">Reset password</a>`
+      `<a href="https://hotts.org/change-password/${token}">Reset password</a>`
     );
     return true;
   }
 
   @Query(() => User, { nullable: true })
-  async me(@Ctx() { req }: MyContext) {
+  me(@Ctx() { req }: MyContext) {
     if (!req.session.userId) {
       return null;
     }
 
-    return await User.findOne(req.session.userId);
+    return User.findOne(req.session.userId);
   }
 
   @Mutation(() => UserResponse)
