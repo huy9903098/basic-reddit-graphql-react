@@ -9,7 +9,7 @@ import path from "path";
 import "reflect-metadata";
 import { buildSchema } from "type-graphql";
 import { createConnection } from "typeorm";
-import { COOKIE_NAME, __prod__ } from "./constants";
+import { COOKIE_NAME } from "./constants";
 import { Comment } from "./entities/Comment";
 import { Post } from "./entities/Post";
 import { Updoot } from "./entities/Updoot";
@@ -57,8 +57,8 @@ const main = async () => {
         maxAge: 1000 * 60 * 60 * 24, // 10 years
         httpOnly: true,
         sameSite: "lax", // csrf
-        secure: __prod__, // cookie only works in https
-        domain: __prod__? '.hotts.org': undefined
+        secure: false, // cookie only works in https
+        domain: '.hotts.org'
       },
       saveUninitialized: false,
       secret: process.env.SESSION_SECRET,
