@@ -40,7 +40,7 @@ const EditPost = ({}) => {
     );
   }
   return (
-    <Layout variant="small">
+    <Layout>
       <Formik
         initialValues={{ title: data.post.title, text: data.post.text }}
         onSubmit={async (values) => {
@@ -57,12 +57,14 @@ const EditPost = ({}) => {
                 name="text"
                 label="Body"
                 placeholder="text..."
+                height={300}
               />
             </Box>
 
             <Button
               type="submit"
-              variantColor="teal"
+              backgroundColor="#02699c"
+              color="white"
               mt={4}
               isLoading={isSubmitting}
             >

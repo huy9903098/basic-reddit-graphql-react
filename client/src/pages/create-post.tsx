@@ -33,12 +33,14 @@ const CreatePost: React.FC<{}> = ({}) => {
                 name="text"
                 label="Body"
                 placeholder="text..."
+                height={300}
               />
             </Box>
 
             <Button
               type="submit"
-              variantColor="teal"
+              backgroundColor="#02699c"
+              color="white"
               mt={4}
               isLoading={isSubmitting}
             >
